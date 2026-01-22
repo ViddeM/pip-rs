@@ -585,7 +585,7 @@ checksum = "df1d3c3b53da64cf5760482273a98e575c651a67eec7f77df96b5b642de8f039"
 
 [[package]]
 name = "listener"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "env_logger",
  "log",
@@ -776,7 +776,7 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "pinger"
-version = "0.1.0"
+version = "0.0.0"
 
 [[package]]
 name = "portable-atomic"
