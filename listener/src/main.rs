@@ -1,61 +1,21 @@
-use std::{
-    io::Write,
-    net::{Ipv4Addr, TcpListener},
-};
+#[macro_use]
+extern crate rocket;
 
-use clap::Parser;
-use eyre::Context;
-use log::{error, info};
+use std::net::IpAddr;
 
-#[derive(Parser)]
-struct Args {
-    #[clap(long, env = "BIND_IP")]
-    ip: Ipv4Addr,
-    #[clap(long, short, env = "PORT")]
-    port: u16,
-}
+use rocket::launch;
 
-fn main() -> eyre::Result<()> {
-    color_eyre::install()?;
+#[launch]
+fn rocket() -> _ {
     env_logger::init();
 
-    let args = Args::parse();
+    rocket::build().mount("/", routes![get_ip])
+}
 
-    let host = format!("{}:{}", args.ip.to_string(), args.port);
+#[get("/ip")]
+fn get_ip(ip_addr: IpAddr) -> String {
+    info!("Received request from IP {ip_addr}");
+    let ip_type = if ip_addr.is_ipv4() { "IPv4" } else { "IPv6" };
 
-    let listener = TcpListener::bind(host.clone()).wrap_err("Failed to setup TCP listener")?;
-
-    info!("Started listening on: {host}");
-
-    for stream in listener.incoming() {
-        let mut s = match stream {
-            Ok(s) => s,
-            Err(err) => {
-                error!("Failed to accept connection due to: {err}");
-                continue;
-            }
-        };
-
-        let peer = match s.peer_addr() {
-            Ok(p) => p,
-            Err(err) => {
-                error!("Failed to read peer address due to: {err}");
-                continue;
-            }
-        };
-
-        let ip_type = if peer.is_ipv4() { "IPv4" } else { "IPv6" };
-        info!(
-            "Peer connected from {ip_type} {} from port {} responding with IP",
-            peer.ip(),
-            peer.port()
-        );
-
-        if let Err(err) = s.write(format!("{ip_type}: {}", peer.ip().to_string()).as_bytes()) {
-            error!("Failed to send response, sadge: {err}");
-            continue;
-        }
-    }
-
-    Ok(())
+    format!("{ip_type} {}", ip_addr.to_string())
 }
