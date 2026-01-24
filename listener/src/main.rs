@@ -9,7 +9,7 @@ use rocket::{Request, http::Status, launch, outcome::Outcome, request::FromReque
 fn rocket() -> _ {
     env_logger::init();
 
-    rocket::build().mount("/", routes![get_ip])
+    rocket::build().mount("/", routes![get_ip, debug_ip])
 }
 
 #[get("/ip")]
@@ -29,7 +29,7 @@ struct DebugIps {
     data: String,
 }
 
-#[crate::async_trait]
+#[rocket::async_trait]
 impl<'r> FromRequest<'r> for DebugIps {
     type Error = Infallible;
 
@@ -39,7 +39,15 @@ impl<'r> FromRequest<'r> for DebugIps {
         let real_ip = request.headers().get("X-Real-IP").collect::<Vec<_>>();
         let forwarded_for = request.headers().get("X-Forwarded-For").collect::<Vec<_>>();
 
-        let data = String::new();
+        let ip = match request.remote() {
+            Some(r) => r.ip().to_string(),
+            None => return Outcome::Forward(Status::InternalServerError),
+        };
+
+        let real_ips = real_ip.join(", ");
+        let forwarded_for = forwarded_for.join(", ");
+
+        let data = format!("REAL_IPS: {real_ips}\nFORWARDED_FOR: {forwarded_for}\nIP: {ip}");
         Outcome::Success(DebugIps { data })
     }
 }
