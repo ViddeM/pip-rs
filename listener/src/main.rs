@@ -9,7 +9,7 @@ use rocket::{Request, http::Status, launch, outcome::Outcome, request::FromReque
 fn rocket() -> _ {
     env_logger::init();
 
-    rocket::build().mount("/", routes![get_ip, debug_ip])
+    rocket::build().mount("/", routes![get_ip])
 }
 
 #[get("/ip")]
@@ -36,18 +36,20 @@ impl<'r> FromRequest<'r> for DebugIps {
     async fn from_request(
         request: &'r Request<'_>,
     ) -> Outcome<Self, (Status, Self::Error), Status> {
-        let real_ip = request.headers().get("X-Real-IP").collect::<Vec<_>>();
-        let forwarded_for = request.headers().get("X-Forwarded-For").collect::<Vec<_>>();
-
         let ip = match request.remote() {
             Some(r) => r.ip().to_string(),
             None => return Outcome::Forward(Status::InternalServerError),
         };
 
-        let real_ips = real_ip.join(", ");
-        let forwarded_for = forwarded_for.join(", ");
+        let headers = request
+            .headers()
+            .iter()
+            .map(|h| format!("{} :: {}", h.name(), h.value()))
+            .collect::<Vec<_>>();
 
-        let data = format!("REAL_IPS: {real_ips}\nFORWARDED_FOR: {forwarded_for}\nIP: {ip}");
+        let hs = headers.join("\n");
+
+        let data = format!("TCP IP: {ip}\n{hs}");
         Outcome::Success(DebugIps { data })
     }
 }
