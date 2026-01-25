@@ -1,9 +1,9 @@
 #[macro_use]
 extern crate rocket;
 
-use std::{convert::Infallible, net::IpAddr};
+use std::net::IpAddr;
 
-use rocket::{Request, http::Status, launch, outcome::Outcome, request::FromRequest};
+use rocket::launch;
 
 #[launch]
 fn rocket() -> _ {
