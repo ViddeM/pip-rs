@@ -9,7 +9,7 @@ use rocket::{Request, http::Status, launch, outcome::Outcome, request::FromReque
 fn rocket() -> _ {
     env_logger::init();
 
-    rocket::build().mount("/", routes![get_ip])
+    rocket::build().mount("/", routes![get_ip, debug_ip])
 }
 
 #[get("/ip")]
