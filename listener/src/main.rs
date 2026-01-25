@@ -9,7 +9,7 @@ use rocket::{Request, http::Status, launch, outcome::Outcome, request::FromReque
 fn rocket() -> _ {
     env_logger::init();
 
-    rocket::build().mount("/", routes![get_ip, debug_ip])
+    rocket::build().mount("/", routes![get_ip])
 }
 
 #[get("/ip")]
@@ -18,38 +18,4 @@ fn get_ip(ip_addr: IpAddr) -> String {
     let ip_type = if ip_addr.is_ipv4() { "IPv4" } else { "IPv6" };
 
     format!("{ip_type} {}", ip_addr.to_string())
-}
-
-#[get("/debug/ip")]
-fn debug_ip(ips: DebugIps) -> String {
-    ips.data
-}
-
-struct DebugIps {
-    data: String,
-}
-
-#[rocket::async_trait]
-impl<'r> FromRequest<'r> for DebugIps {
-    type Error = Infallible;
-
-    async fn from_request(
-        request: &'r Request<'_>,
-    ) -> Outcome<Self, (Status, Self::Error), Status> {
-        let ip = match request.remote() {
-            Some(r) => r.ip().to_string(),
-            None => return Outcome::Forward(Status::InternalServerError),
-        };
-
-        let headers = request
-            .headers()
-            .iter()
-            .map(|h| format!("{} :: {}", h.name(), h.value()))
-            .collect::<Vec<_>>();
-
-        let hs = headers.join("\n");
-
-        let data = format!("TCP IP: {ip}\n{hs}");
-        Outcome::Success(DebugIps { data })
-    }
 }
