@@ -3,6 +3,7 @@ extern crate rocket;
 
 use std::net::IpAddr;
 
+use common::IpResponse;
 use rocket::launch;
 
 #[launch]
@@ -15,7 +16,6 @@ fn rocket() -> _ {
 #[get("/ip")]
 fn get_ip(ip_addr: IpAddr) -> String {
     info!("Received request from IP {ip_addr}");
-    let ip_type = if ip_addr.is_ipv4() { "IPv4" } else { "IPv6" };
-
-    format!("{ip_type} {}", ip_addr.to_string())
+    let ip_response = IpResponse::new(ip_addr);
+    ip_response.to_body()
 }

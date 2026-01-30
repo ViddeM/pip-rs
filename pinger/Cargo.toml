@@ -4,3 +4,7 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
+reqwest = "0.13.1"
+thiserror = "2.0.18"
+url = "2.5.8"
+common = { workspace = true }

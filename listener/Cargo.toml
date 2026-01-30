@@ -7,3 +7,4 @@ edition = "2024"
 env_logger = "0.11.8"
 log = "0.4.29"
 rocket = "0.5.1"
+common = { workspace = true }
