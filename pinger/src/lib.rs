@@ -1,6 +1,7 @@
 use std::{collections::HashMap, net::IpAddr};
 
 use common::IpResponse;
+use futures::{StreamExt, stream::FuturesUnordered};
 use reqwest::{Client, ClientBuilder, IntoUrl, StatusCode};
 use url::Url;
 
@@ -30,19 +31,33 @@ impl IpPinger {
 
     const PING_ENDPOINT: &'static str = "/ip";
     pub async fn ping(&self) -> Result<IpAddr, HashMap<Url, PingerError>> {
+        let mut futures = self
+            .remotes
+            .iter()
+            .map(|remote| self.ping_remote(remote))
+            .collect::<FuturesUnordered<_>>();
+
         let mut errors = HashMap::new();
-        for remote in self.remotes.iter() {
-            match self.ping_remote(remote).await {
-                Ok(resp) => return Ok(resp),
-                Err(err) => {
-                    errors.insert(remote.clone(), err);
+        while let Some(resp) = futures.next().await {
+            match resp {
+                Ok(ip) => return Ok(ip),
+                Err((remote, err)) => {
+                    errors.insert(remote, err);
                 }
             }
         }
+
         return Err(errors);
     }
 
-    async fn ping_remote(&self, remote: &Url) -> Result<IpAddr, PingerError> {
+    async fn ping_remote(&self, remote: &Url) -> Result<IpAddr, (Url, PingerError)> {
+        match self.ping_remote_inner(remote).await {
+            Ok(ip) => Ok(ip),
+            Err(err) => Err((remote.clone(), err)),
+        }
+    }
+
+    async fn ping_remote_inner(&self, remote: &Url) -> Result<IpAddr, PingerError> {
         let endpoint = format!("{remote}{}", Self::PING_ENDPOINT);
         let response = self.client.get(endpoint).send().await?;
         let response_status = response.status();

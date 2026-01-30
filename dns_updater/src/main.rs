@@ -8,6 +8,8 @@ async fn main() -> eyre::Result<()> {
     let pinger = IpPinger::builder()
         .with_remote("http://localhost:39393")
         .wrap_err("Invalid remote?")?
+        .with_remote("http://localhost:39394")
+        .wrap_err("Invalid remote?")?
         .build()
         .wrap_err("Failed to create IP pinger")?;
 

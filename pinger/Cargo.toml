@@ -8,3 +8,4 @@ reqwest = "0.13.1"
 thiserror = "2.0.18"
 url = "2.5.8"
 common = { workspace = true }
+futures = "0.3.31"
