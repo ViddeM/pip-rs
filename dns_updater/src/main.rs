@@ -1,25 +1,18 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use clap::Parser;
-use cloudflare::{
-    endpoints::{
-        self,
-        dns::dns::{DnsContent, ListDnsRecords, ListDnsRecordsParams},
-    },
-    framework::{
-        Environment,
-        auth::Credentials,
-        client::{ClientConfig, blocking_api::HttpApiClient},
-    },
-};
 use eyre::Context;
 use pinger::IpPinger;
 
+use crate::cloudflare::{CloudflareClient, RecordType};
+
 pub mod cli;
+pub mod cloudflare;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
+    dotenvy::dotenv()?;
 
     let args = cli::Args::parse();
 
@@ -31,16 +24,6 @@ async fn main() -> eyre::Result<()> {
     }
 
     let pinger = pinger.build().wrap_err("Failed to create IP pinger")?;
-
-    let credentials = Credentials::UserAuthToken {
-        token: args.cloudflare_auth_key,
-    };
-    let cloudflare_client = HttpApiClient::new(
-        credentials,
-        ClientConfig::default(),
-        Environment::Production,
-    )
-    .wrap_err("Failed to setup cloudflare client")?;
 
     let ip = match pinger.ping().await {
         Ok(ip) => ip,
@@ -56,27 +39,41 @@ async fn main() -> eyre::Result<()> {
         }
     };
 
+    let cloudflare_client = CloudflareClient::new(args.cloudflare_auth_key, args.mock);
+
     for zone_id in args.zone_ids.iter() {
-        let mut params = ListDnsRecordsParams::default();
-
-        // TODO: I'm assuming that the addr here doesn't matter since in the API it only requires the type?
-        let record_type = match &ip {
-            IpAddr::V4(_) => DnsContent::A {
-                content: Ipv4Addr::UNSPECIFIED,
-            },
-            IpAddr::V6(_) => DnsContent::AAAA {
-                content: Ipv6Addr::UNSPECIFIED,
-            },
-        };
-        params.record_type = Some(record_type);
-
-        let list_records = ListDnsRecords {
-            zone_identifier: zone_id.as_str(),
-            params: params,
-        };
         let list_response = cloudflare_client
-            .request(&list_records)
-            .wrap_err("failed to send list request to cloudflare")?;
+            .list_dns_records(zone_id.as_str())
+            .await
+            .wrap_err_with(|| format!("Failed to retrieve dns records for zone: {zone_id}"))?;
+
+        let filtered = match ip {
+            IpAddr::V4(_) => list_response
+                .into_iter()
+                .filter(|record| record.record_type == RecordType::A)
+                .collect::<Vec<_>>(),
+            IpAddr::V6(_) => list_response
+                .into_iter()
+                .filter(|record| record.record_type == RecordType::AAAA)
+                .collect::<Vec<_>>(),
+        };
+
+        println!("LIST RESPONSE (IP: {ip:?}): {filtered:#?}");
+
+        for record in filtered.into_iter() {
+            let mut record = record;
+            let old_content = record.content;
+            record.content = Some(ip.to_string());
+            let new_content = record.content.clone();
+            let id = record.id.clone();
+            cloudflare_client
+                .overwrite_dns_record(zone_id, &id, record)
+                .await
+                .wrap_err("Failed to send overwriting cloudflare record")?;
+            println!(
+                "Updated record in zone {zone_id} / record {id} from {old_content:?} -> {new_content:?}",
+            );
+        }
     }
 
     Ok(())
