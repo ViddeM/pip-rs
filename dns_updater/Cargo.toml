@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+clap = { version = "4.5.56", features = ["derive"] }
+cloudflare = { version = "0.14.0", features = ["blocking"] }
 color-eyre = "0.6.5"
 eyre = "0.6.12"
 pinger = { workspace = true }
